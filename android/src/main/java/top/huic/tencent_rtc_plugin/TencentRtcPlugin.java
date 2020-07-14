@@ -9,6 +9,9 @@ import com.tencent.trtc.TRTCCloudDef;
 import com.tencent.trtc.TRTCCloudListener;
 
 import androidx.annotation.NonNull;
+
+import java.io.UnsupportedEncodingException;
+
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodCall;
@@ -200,6 +203,9 @@ public class TencentRtcPlugin implements FlutterPlugin, MethodCallHandler {
                 break;
             case "isCameraAutoFocusFaceModeSupported":
                 this.isCameraAutoFocusFaceModeSupported(call, result);
+                break;
+            case "sendCustomCmdMsg":
+                this.sendCustomCmdMsg(call, result);
                 break;
             default:
                 result.notImplemented();
@@ -593,5 +599,20 @@ public class TencentRtcPlugin implements FlutterPlugin, MethodCallHandler {
      */
     private void isCameraAutoFocusFaceModeSupported(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
         result.success(trtcCloud.isCameraAutoFocusFaceModeSupported());
+    }
+
+    /**
+     * 发送自定义消息。
+     */
+    private void sendCustomCmdMsg(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
+        try {
+            int cmdID = TencentRtcPluginUtil.getParam(call, result, "cmdID");
+            String msg = TencentRtcPluginUtil.getParam(call, result, "msg");
+
+            byte[] data = msg.getBytes("UTF-8");
+            result.success(trtcCloud.sendCustomCmdMsg(cmdID, data, true, true));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
     }
 }

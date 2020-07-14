@@ -5,37 +5,34 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import 'entity/video_enc_param_entity.dart';
-import 'enums/listener_type_enum.dart';
 
 class TencentRtcPlugin {
   static const MethodChannel _channel = const MethodChannel('tencent_rtc_plugin');
 
   /// 监听器对象
-  static TencentRtcPluginListener listener;
+  static _TencentRtcPluginListener _listener;
 
   /// 添加消息监听
-  static void addListener(ListenerValue func) {
-    if (listener == null) {
-      listener = TencentRtcPluginListener(_channel);
+  static void addListener(TencentRtcPluginListener listener) {
+    if (_listener == null) {
+      _listener = _TencentRtcPluginListener(_channel);
     }
-    listener.addListener(func);
+    _listener.addListener(listener);
   }
 
   /// 移除消息监听
-  static void removeListener(ListenerValue func) {
-    if (listener == null) {
-      listener = TencentRtcPluginListener(_channel);
+  static void removeListener(TencentRtcPluginListener listener) {
+    if (_listener == null) {
+      _listener = _TencentRtcPluginListener(_channel);
     }
-    listener.removeListener(func);
+    _listener.removeListener(listener);
   }
 
   /// 设置Debug视图
   static Future<void> showDebugView({
     @required int mode, // 模式
   }) async {
-    return await _channel.invokeMethod('showDebugView', {
-      "mode": mode,
-    });
+    return await _channel.invokeMethod('showDebugView', {"mode": mode});
   }
 
   /// 设置启用控制台打印
@@ -174,7 +171,7 @@ class TencentRtcPlugin {
     @required VideoEncParamEntity param, // 视频编码参数，详情请参考 TRTCCloudDef.java 中的 TRTCVideoEncParam 定义。
   }) async {
     return _channel.invokeMethod('setVideoEncoderParam', {
-      "param": param.toJson(),
+      "param": param.toString(),
     });
   }
 
@@ -350,7 +347,7 @@ class TencentRtcPlugin {
   }
 
   /// 查询当前摄像头是否支持缩放
-  Future<bool> isCameraZoomSupported() async {
+  static Future<bool> isCameraZoomSupported() async {
     return _channel.invokeMethod('isCameraZoomSupported');
   }
 
@@ -364,7 +361,7 @@ class TencentRtcPlugin {
   }
 
   /// 查询是否支持开关闪光灯（手电筒模式）。
-  Future<bool> isCameraTorchSupported() async {
+  static Future<bool> isCameraTorchSupported() async {
     return _channel.invokeMethod('isCameraTorchSupported');
   }
 
@@ -378,7 +375,7 @@ class TencentRtcPlugin {
   }
 
   /// 查询是否支持设置焦点。
-  Future<bool> isCameraFocusPositionInPreviewSupported() async {
+  static Future<bool> isCameraFocusPositionInPreviewSupported() async {
     return _channel.invokeMethod('isCameraFocusPositionInPreviewSupported');
   }
 
@@ -394,66 +391,335 @@ class TencentRtcPlugin {
   }
 
   /// 查询是否支持自动识别人脸位置。
-  Future<bool> isCameraAutoFocusFaceModeSupported() async {
+  static Future<bool> isCameraAutoFocusFaceModeSupported() async {
     return _channel.invokeMethod('isCameraAutoFocusFaceModeSupported');
+  }
+
+  static Future<bool> sendCustomCmdMsg({int cmdID = 0x1, String msg}) async {
+    assert(msg != null && msg.length < 1024);
+    return _channel.invokeMethod('sendCustomCmdMsg', {
+      "cmdID": cmdID,
+      "msg": msg
+    });
   }
 }
 
-/// 监听器对象
 class TencentRtcPluginListener {
-  /// 监听器列表
-  static Set<ListenerValue> listeners = Set();
 
-  TencentRtcPluginListener(MethodChannel channel) {
+  @mustCallSuper
+  void handle(String method, dynamic params) {
+    if (params is String) {
+      params = jsonDecode(params);
+    }
+
+    switch (method) {
+      case 'SdkError':
+        onError(params['code'], params['msg']);
+        break;
+      case 'Warning':
+        onWarning(params['code'], params['msg']);
+        break;
+      case 'EnterRoom':
+        onEnterRoom(params);
+        break;
+      case 'ExitRoom':
+        onExitRoom(params);
+        break;
+      case 'SwitchRole':
+        onSwitchRole(params['code'], params['msg']);
+        break;
+      case 'ConnectOtherRoom':
+        onConnectOtherRoom(params['userId'], params['code'], params['msg']);
+        break;
+      case 'DisConnectOtherRoom':
+        onDisConnectOtherRoom(params['code'], params['msg']);
+        break;
+      case 'RemoteUserEnterRoom':
+        onRemoteUserEnterRoom(params.toString());
+        break;
+      case 'RemoteUserLeaveRoom':
+        onRemoteUserLeaveRoom(params['userId'], params['reason']);
+        break;
+      case 'UserVideoAvailable':
+        onUserVideoAvailable(params['userId'], params['available']);
+        break;
+      case 'UserSubStreamAvailable':
+        onUserSubStreamAvailable(params['userId'], params['available']);
+        break;
+      case 'UserAudioAvailable':
+        onUserAudioAvailable(params['userId'], params['available']);
+        break;
+      case 'FirstVideoFrame':
+        onFirstVideoFrame(params['userId'], params['streamType'], params['width'], params['height']);
+        break;
+      case 'FirstAudioFrame':
+        onFirstAudioFrame(params.toString());
+        break;
+      case 'SendFirstLocalVideoFrame':
+        onSendFirstLocalVideoFrame(params);
+        break;
+      case 'SendFirstLocalAudioFrame':
+        onSendFirstLocalAudioFrame();
+        break;
+      case 'Statistics':
+        onStatistics(params);
+        break;
+      case 'NetworkQuality':
+        onNetworkQuality(params['localQuality'], params['remoteQuality']);
+        break;
+      case 'ConnectionLost':
+        onConnectionLost();
+        break;
+      case 'TryToReconnect':
+        onTryToReconnect();
+        break;
+      case 'ConnectionRecovery':
+        onConnectionRecovery();
+        break;
+      case 'SpeedTest':
+        onSpeedTest(params['currentResult'], params['finishedCount'], params['totalCount']);
+        break;
+      case 'CameraDidReady':
+        onCameraDidReady();
+        break;
+      case 'MicDidReady':
+        onMicDidReady();
+        break;
+      case 'AudioRouteChanged':
+        onAudioRouteChanged(params['newRoute'], params['oldRoute']);
+        break;
+      case 'UserVoiceVolume':
+        onUserVoiceVolume(params['userVolumes'], params['totalVolume']);
+        break;
+      case 'RecvCustomCmdMsg':
+        onRecvCustomCmdMsg(params['userId'], params['cmdID'], params['seq'], params['message']);
+        break;
+      case 'MissCustomCmdMsg':
+        onMissCustomCmdMsg(params['userId'], params['cmdID'], params['errCode'], params['missed']);
+        break;
+      case 'RecvSEIMsg':
+        onRecvSEIMsg(params['userId'], params['data']);
+        break;
+      case 'StartPublishCDNStream':
+        onStartPublishCDNStream(params['err'], params['errMsg']);
+        break;
+      case 'StopPublishCDNStream':
+        onStopPublishCDNStream(params['err'], params['errMsg']);
+        break;
+      case 'SetMixTranscodingConfig':
+        onSetMixTranscodingConfig(params['err'], params['errMsg']);
+        break;
+      case 'AudioEffectFinished':
+        onAudioEffectFinished(params['effectId'], params['code']);
+        break;
+      default:
+        throw MissingPluginException();
+    }
+  }
+
+  /**
+   * SDK加载错误回调
+   * 错误通知是要监听的，错误通知意味着 SDK 不能继续运行了
+   */
+  void onError(int errCode, String errMsg) {}
+
+  /**
+   * 警告回调，用于告知您一些非严重性问题，例如出现卡顿或者可恢复的解码失败。
+   */
+  void onWarning(int errCode, String errMsg) {}
+
+  /**
+   * 加入房间监听器
+   */
+  void onEnterRoom(int id) {}
+
+  /**
+   * 退出房间监听器
+   */
+  void onExitRoom(int id) {}
+
+  /**
+   * 切换角色
+   */
+  void onSwitchRole(int code, String msg) {}
+
+  /**
+   * 请求跨房通话（主播 PK）的结果回调。
+   */
+  void onConnectOtherRoom(String uid, int code, String msg) {}
+
+  /**
+   * 结束跨房通话（主播 PK）的结果回调。
+   */
+  void onDisConnectOtherRoom(int code, String msg) {}
+
+  /**
+   * 有用户加入当前房间。
+   */
+  void onRemoteUserEnterRoom(String uid) {}
+
+  /**
+   * 有用户离开当前房间。
+   */
+  void onRemoteUserLeaveRoom(String uid, int reason) {}
+
+  /**
+   * 有用户上传视频数据。
+   */
+  void onUserVideoAvailable(String uid, bool available) {}
+
+  /**
+   * 有用户上传屏幕数据。
+   */
+  void onUserSubStreamAvailable(String uid, bool available) {}
+
+  /**
+   * 有用户上传音频数据。
+   */
+  void onUserAudioAvailable(String uid, bool available) {}
+
+  /**
+   * 开始渲染本地或远程用户的首帧画面。
+   */
+  void onFirstVideoFrame(String uid, int streamType, int width, int height) {}
+
+  /**
+   * 开始播放远程用户的首帧音频（本地声音暂不通知）。
+   */
+  void onFirstAudioFrame(String uid) {}
+
+  /**
+   * 首帧本地视频数据已经被送出。
+   */
+  void onSendFirstLocalVideoFrame(int i) {}
+
+  /**
+   * 首帧本地音频数据已经被送出。
+   */
+  void onSendFirstLocalAudioFrame() {}
+
+  /**
+   * 网络质量：该回调每2秒触发一次，统计当前网络的上行和下行质量。
+   */
+  void onNetworkQuality(dynamic localQuality, dynamic remoteQuality) {}
+
+  /**
+   * 技术指标统计回调。
+   */
+  void onStatistics(dynamic statistics) {}
+
+  /**
+   * 跟服务器断开。
+   */
+  void onConnectionLost() {}
+
+  /**
+   * SDK 尝试重新连接到服务器。
+   */
+  void onTryToReconnect() {}
+
+  /**
+   * SDK 跟服务器的连接恢复。
+   */
+  void onConnectionRecovery() {}
+
+  /**
+   * 服务器测速的回调，SDK 对多个服务器 IP 做测速，每个 IP 的测速结果通过这个回调通知。【仅Android】。
+   */
+  void onSpeedTest(dynamic currentResult, int finishedCount, int totalCount) {}
+
+  /**
+   * 摄像头准备就绪。
+   */
+  void onCameraDidReady() {}
+
+  /**
+   * 麦克风准备就绪。
+   */
+  void onMicDidReady() {}
+
+  /**
+   * 音频路由发生变化，音频路由即声音由哪里输出（扬声器、听筒）。
+   */
+  void onAudioRouteChanged(int newRoute, int oldRoute) {}
+
+  /**
+   * 用于提示音量大小的回调，包括每个 userId 的音量和远端总音量。
+   */
+  void onUserVoiceVolume(List<dynamic> userVolumes, int totalVolume) {}
+
+  /**
+   * 收到自定义消息。
+   */
+  void onRecvCustomCmdMsg(String uid, int cmdID, int seq, String message) {}
+
+  /**
+   * 自定义消息丢失。
+   */
+  void onMissCustomCmdMsg(String uid, int cmdID, int errCode, int missed) {}
+
+  /**
+   * 收到SEI消息。
+   */
+  void onRecvSEIMsg(String uid, String message) {}
+
+  /**
+   * 启动旁路推流到 CDN 完成的回调。
+   */
+  void onStartPublishCDNStream(int errCode, String errMsg) {}
+
+  /**
+   * 停止旁路推流到 CDN 完成的回调。
+   */
+  void onStopPublishCDNStream(int errCode, String errMsg) {}
+
+  /**
+   * 设置云端的混流转码参数的回调，对应于 TRTCCloud 中的 setMixTranscodingConfig() 接口。
+   */
+  void onSetMixTranscodingConfig(int errCode, String errMsg) {}
+
+  /**
+   * 播放音效结束回调。
+   */
+  void onAudioEffectFinished(int effectId, int code) {}
+}
+
+class _TencentRtcPluginListener {
+
+  static Set<TencentRtcPluginListener> listeners = Set();
+
+  _TencentRtcPluginListener(MethodChannel channel) {
     // 绑定监听器
-    channel.setMethodCallHandler((methodCall) async {
+    channel.setMethodCallHandler((MethodCall methodCall) async {
+      if (methodCall.method != 'onListener') {
+        return;
+      }
+
       // 解析参数
       Map<String, dynamic> arguments = jsonDecode(methodCall.arguments);
 
-      switch (methodCall.method) {
-        case 'onListener':
-          // 获得原始类型和参数
-          String typeStr = arguments['type'];
-          var params = arguments['params'];
-
-          // 封装回调类型和参数
-          ListenerTypeEnum type;
-
-          // 初始化类型
-          for (var item in ListenerTypeEnum.values) {
-            if (item.toString().replaceFirst("ListenerTypeEnum.", "") == typeStr) {
-              type = item;
-              break;
-            }
-          }
-
-          // 没有找到类型就返回
-          if (type == null) {
-            throw MissingPluginException();
-          }
-
-          // 回调触发
-          for (var item in listeners) {
-            item(type, params);
-          }
-
-          break;
-        default:
-          throw MissingPluginException();
+      try {
+        // 回调触发
+        for (var item in listeners) {
+          item.handle(arguments['type'], arguments['params']);
+        }
+      } catch (e) {
+        print('=========================================================================');
+        print('unhandle event[${arguments['type']}] exception $e');
+        print("params> ${arguments['params'].runtimeType}: ${arguments['params']}");
+        print('=========================================================================');
+        throw e;
       }
     });
   }
 
   /// 添加消息监听
-  void addListener(ListenerValue func) {
+  void addListener(TencentRtcPluginListener func) {
     listeners.add(func);
   }
 
   /// 移除消息监听
-  void removeListener(ListenerValue func) {
+  void removeListener(TencentRtcPluginListener func) {
     listeners.remove(func);
   }
 }
-
-/// 监听器值模型
-typedef ListenerValue<P> = void Function(ListenerTypeEnum type, P params);

@@ -3,9 +3,7 @@ import 'package:flutter/services.dart';
 
 /// 视图控制器
 class TencentRtcVideoViewController {
-  TencentRtcVideoViewController(int id)
-      : _channel =
-            new MethodChannel('plugins.huic.top/tencentRtcVideoView_$id');
+  TencentRtcVideoViewController(int id) :_channel = new MethodChannel('plugins.huic.top/tencentRtcVideoView_$id');
 
   final MethodChannel _channel;
 

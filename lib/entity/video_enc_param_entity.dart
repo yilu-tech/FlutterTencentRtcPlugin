@@ -4,11 +4,10 @@ class VideoEncParamEntity {
   int videoResolutionMode;
   int videoFps;
 
-  VideoEncParamEntity(
-      {this.videoBitrate,
-      this.videoResolution,
-      this.videoResolutionMode,
-      this.videoFps});
+  VideoEncParamEntity({this.videoBitrate,
+    this.videoResolution,
+    this.videoResolutionMode,
+    this.videoFps});
 
   VideoEncParamEntity.fromJson(Map<String, dynamic> json) {
     videoBitrate = json['videoBitrate'];
@@ -24,5 +23,10 @@ class VideoEncParamEntity {
     data['videoResolutionMode'] = this.videoResolutionMode;
     data['videoFps'] = this.videoFps;
     return data;
+  }
+
+  @override
+  String toString() {
+    return '{"videoFps": $videoFps, "videoBitrate": $videoBitrate, "videoResolution": $videoResolution, "videoResolutionMode": $videoResolutionMode}';
   }
 }
