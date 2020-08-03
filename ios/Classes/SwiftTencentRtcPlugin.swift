@@ -160,6 +160,9 @@ public class SwiftTencentRtcPlugin: NSObject, FlutterPlugin, TRTCCloudDelegate {
         case "isCameraAutoFocusFaceModeSupported":
             self.isCameraAutoFocusFaceModeSupported(call: call, result: result);
             break;
+        case "sendCustomCmdMsg":
+            self.sendCustomCmdMsg(call: call, result: result);
+            break;
         default:
             result(FlutterMethodNotImplemented);
         }
@@ -618,6 +621,17 @@ public class SwiftTencentRtcPlugin: NSObject, FlutterPlugin, TRTCCloudDelegate {
      */
     public func isCameraAutoFocusFaceModeSupported(call: FlutterMethodCall, result: @escaping FlutterResult) {
         result(TRTCCloud.sharedInstance()?.isCameraAutoFocusFaceModeSupported());
+    }
+
+    /**
+     * 发送自定义消息。
+     */
+    public func sendCustomCmdMsg(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        if let cmdID = CommonUtils.getParam(call: call, result: result, param: "cmdID") as? Int,
+           let msg = CommonUtils.getParam(call: call, result: result, param: "msg") as? String {
+            let data = msg.data(using: String.Encoding.utf8);
+            result(TRTCCloud.sharedInstance()?.sendCustomCmdMsg(cmdID, data: data, reliable: true, ordered: true));
+        }
     }
 
     /**
