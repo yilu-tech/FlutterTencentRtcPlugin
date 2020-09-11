@@ -33,6 +33,9 @@ public class TencentRtcPlugin implements FlutterPlugin, MethodCallHandler {
      */
     private TRTCCloud trtcCloud;
 
+    private Context mContext;
+    private TRTCCloudListener mTRTCCloudListener;
+
     public TencentRtcPlugin() {
     }
 
@@ -40,12 +43,19 @@ public class TencentRtcPlugin implements FlutterPlugin, MethodCallHandler {
         // 禁用日志打印
         TRTCCloud.setConsoleEnabled(false);
 
-        // 初始化实例
-        trtcCloud = TRTCCloud.sharedInstance(context);
-        trtcCloud.setListener(new CustomTRTCCloudListener(channel));
+        mContext = context;
+        mTRTCCloudListener = new CustomTRTCCloudListener(channel);
 
         // 注册View
         registry.registerViewFactory(TencentRtcVideoPlatformView.SIGN, new TencentRtcVideoPlatformView(context, messenger));
+    }
+
+    private void bootTRTCCloud() {
+        if (trtcCloud == null) {
+            // 初始化实例
+            trtcCloud = TRTCCloud.sharedInstance(mContext);
+            trtcCloud.setListener(mTRTCCloudListener);
+        }
     }
 
     @Override
@@ -56,6 +66,10 @@ public class TencentRtcPlugin implements FlutterPlugin, MethodCallHandler {
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+        if (trtcCloud != null) {
+            trtcCloud = null;
+            TRTCCloud.destroySharedInstance();
+        }
     }
 
     // This static function is optional and equivalent to onAttachedToEngine. It supports the old
@@ -77,7 +91,11 @@ public class TencentRtcPlugin implements FlutterPlugin, MethodCallHandler {
 
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
+        bootTRTCCloud();
         switch (call.method) {
+            case "destroy":
+                this.destroy(call, result);
+                break;
             case "setConsoleEnabled":
                 this.setConsoleEnabled(call, result);
                 break;
@@ -210,7 +228,14 @@ public class TencentRtcPlugin implements FlutterPlugin, MethodCallHandler {
             default:
                 result.notImplemented();
         }
+    }
 
+    public void destroy(@NonNull MethodCall call, @NonNull Result result) {
+        if (trtcCloud != null) {
+            trtcCloud = null;
+            TRTCCloud.destroySharedInstance();
+        }
+        result.success(null);
     }
 
     /**

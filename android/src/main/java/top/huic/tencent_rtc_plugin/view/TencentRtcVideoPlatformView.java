@@ -1,6 +1,8 @@
 package top.huic.tencent_rtc_plugin.view;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 
@@ -8,6 +10,7 @@ import com.tencent.rtmp.ui.TXCloudVideoView;
 import com.tencent.trtc.TRTCCloud;
 
 import androidx.annotation.NonNull;
+
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
@@ -31,76 +34,118 @@ public class TencentRtcVideoPlatformView extends PlatformViewFactory implements 
      */
     private static final String TAG = TencentRtcVideoPlatformView.class.getName();
 
-    /**
-     * 消息器
-     */
-    private BinaryMessenger messenger;
+    private Handler mMainHandler;
 
-    /**
-     * 腾讯云音视频通信实例
-     */
-    private TRTCCloud trtcCloud;
+    private final Context mContext;
+    private BinaryMessenger mMessenger;
 
     /**
      * 腾讯云视频视图
      */
-    private TXCloudVideoView remoteView;
+    private TXCloudVideoView mVideoView;
 
+    private boolean mDisposed = false;
+
+    private boolean mLocalViewing = false;
+    private String mRemoteUserId = "";
 
     /**
      * 初始化工厂信息，此处的域是 PlatformViewFactory
      */
     public TencentRtcVideoPlatformView(Context context, BinaryMessenger messenger) {
         super(StandardMessageCodec.INSTANCE);
-        this.messenger = messenger;
-        trtcCloud = TRTCCloud.sharedInstance(context);
-        remoteView = new TXCloudVideoView(context);
+        this.mContext = context;
+        this.mMessenger = messenger;
+    }
+
+    public TencentRtcVideoPlatformView(Context context) {
+        super(StandardMessageCodec.INSTANCE);
+        this.mContext = context;
+
+        mMainHandler = new Handler(Looper.getMainLooper());
+
+        runOnMainThread(new Runnable() {
+            @Override
+            public void run() {
+                mVideoView = new TXCloudVideoView(mContext);
+            }
+        });
     }
 
     @Override
     public View getView() {
-        return remoteView;
+        return mVideoView;
     }
 
     @Override
     public void dispose() {
+        runOnMainThread(new Runnable() {
+            @Override
+            public void run() {
+                mDisposed = true;
+                if (mLocalViewing) {
+                    TRTCCloud.sharedInstance(mContext).stopLocalPreview();
+                }
+                if (!mRemoteUserId.equals("")) {
+                    TRTCCloud.sharedInstance(mContext).stopRemoteView(mRemoteUserId);
+                }
+                mVideoView.removeVideoView();
+                mVideoView = null;
+            }
+        });
     }
 
     @Override
     public PlatformView create(Context context, int viewId, Object args) {
         // 每次实例化对象，保证界面上每一个组件的独立性(此处域是 PlatformView和MethodChannel.MethodCallHandler)
-        TencentRtcVideoPlatformView view = new TencentRtcVideoPlatformView(context, messenger);
-        new MethodChannel(messenger, SIGN + "_" + viewId).setMethodCallHandler(view);
+        TencentRtcVideoPlatformView view = new TencentRtcVideoPlatformView(context);
+        new MethodChannel(mMessenger, SIGN + "_" + viewId).setMethodCallHandler(view);
+
         return view;
     }
 
+    private void runOnMainThread(Runnable runnable) {
+        Handler handler = mMainHandler;
+        if (handler != null) {
+            if (handler.getLooper() == Looper.myLooper()) {
+                runnable.run();
+            } else {
+                handler.post(runnable);
+            }
+        } else {
+            runnable.run();
+        }
+    }
+
     @Override
-    public void onMethodCall(MethodCall call, MethodChannel.Result result) {
+    public void onMethodCall(final MethodCall call, final MethodChannel.Result result) {
+        if (mDisposed) {
+            return;
+        }
         switch (call.method) {
             case "startRemoteView":
-                this.startRemoteView(call, result);
+                startRemoteView(call, result);
                 break;
             case "stopRemoteView":
-                this.stopRemoteView(call, result);
+                stopRemoteView(call, result);
                 break;
             case "startLocalPreview":
-                this.startLocalPreview(call, result);
+                startLocalPreview(call, result);
                 break;
             case "stopLocalPreview":
-                this.stopLocalPreview(call, result);
+                stopLocalPreview(call, result);
                 break;
             default:
                 result.notImplemented();
         }
-
     }
 
     /**
      * 开启远程显示
      */
     private void startRemoteView(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
-        String userId = TencentRtcPluginUtil.getParam(call, result, "userId");
-        trtcCloud.startRemoteView(userId, this.remoteView);
+        mRemoteUserId = TencentRtcPluginUtil.getParam(call, result, "userId");
+        TRTCCloud.sharedInstance(mContext).startRemoteView(mRemoteUserId, mVideoView);
         result.success(null);
     }
 
@@ -108,8 +153,9 @@ public class TencentRtcVideoPlatformView extends PlatformViewFactory implements 
      * 停止远程显示
      */
     private void stopRemoteView(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
-        String userId = TencentRtcPluginUtil.getParam(call, result, "userId");
-        trtcCloud.stopRemoteView(userId);
+        // String userId = TencentRtcPluginUtil.getParam(call, result, "userId");
+        TRTCCloud.sharedInstance(mContext).stopRemoteView(mRemoteUserId);
+        mRemoteUserId = "";
         result.success(null);
     }
 
@@ -118,7 +164,8 @@ public class TencentRtcVideoPlatformView extends PlatformViewFactory implements 
      */
     private void startLocalPreview(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
         boolean frontCamera = TencentRtcPluginUtil.getParam(call, result, "frontCamera");
-        trtcCloud.startLocalPreview(frontCamera, this.remoteView);
+        TRTCCloud.sharedInstance(mContext).startLocalPreview(frontCamera, mVideoView);
+        mLocalViewing = true;
         result.success(null);
     }
 
@@ -126,7 +173,8 @@ public class TencentRtcVideoPlatformView extends PlatformViewFactory implements 
      * 停止本地视频采集
      */
     private void stopLocalPreview(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
-        trtcCloud.stopLocalPreview();
+        TRTCCloud.sharedInstance(mContext).stopLocalPreview();
+        mLocalViewing = false;
         result.success(null);
     }
 }

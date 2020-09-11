@@ -12,6 +12,10 @@ class TencentRtcPlugin {
   /// 监听器对象
   static _TencentRtcPluginListener _listener;
 
+  static Future<void> destroy() async {
+    return await _channel.invokeMethod('destroy');
+  }
+
   /// 添加消息监听
   static void addListener(TencentRtcPluginListener listener) {
     if (_listener == null) {
