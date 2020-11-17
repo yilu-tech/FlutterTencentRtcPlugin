@@ -38,7 +38,7 @@ android {
     }
 
     dependencies {
-        api 'com.tencent.liteav:LiteAVSDK_TRTC:latest.release'
+        api 'com.tencent.liteav:LiteAVSDK_TRTC:7.9.9568'
         api 'com.alibaba:fastjson:1.2.55'
     }
 
