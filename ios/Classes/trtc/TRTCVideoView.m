@@ -151,7 +151,8 @@
     _btnMuteAudio.center = CGPointMake(_btnMuteVideo.center.x + ICON_SIZE + centerInterVal, iconY);
     _btnScaleMode.center = CGPointMake(_btnMuteAudio.center.x + ICON_SIZE + centerInterVal, iconY);
     _audioVolumeIndicator.frame = CGRectMake(0, size.height - 2, size.width, 2);
-    
+    _audioVolumeIndicator.hidden = YES;
+
     if (_tipBgView) {
         _tipBgView.frame = self.bounds;
         _faceImageView.center = CGPointMake(size.width / 2, size.height / 2 - 20);
@@ -187,6 +188,7 @@
 //    _audioVolumeIndicator.width = 3;
     _audioVolumeIndicator.progressTintColor = UIColor.yellowColor;
     _audioVolumeIndicator.progress = 0.0;
+    _audioVolumeIndicator.hidden = YES;
     
     _networkIndicator = [[UIImageView alloc] init];
     _networkIndicator.contentMode = UIViewContentModeScaleAspectFit;
